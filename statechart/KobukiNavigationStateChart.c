@@ -23,6 +23,19 @@ typedef enum{
 	RIGHT
 } turn_t;
 
+typedef enum{
+	FORWARD,							// move straight forward
+	BACKWARD,							// move straight backward
+	REORIENT,							// reorient to original angle
+	TURN								/// Turn
+} navigationState_t;
+
+typedef enum{
+	HILL_TRANSITION=0,
+	HILL_NAVIGATION,
+	HILL_LIMIT_TRANSITION,
+	HILL_HALT
+}hillClimbingState_t;
 // ============================================================================================================
 
 // Program States
@@ -31,10 +44,8 @@ typedef enum{
 	PAUSE_WAIT_BUTTON_RELEASE,			// Paused; pause button pressed down, wait until released before detecting next press
 	UNPAUSE_WAIT_BUTTON_PRESS,			// Paused; wait for pause button to be pressed
 	UNPAUSE_WAIT_BUTTON_RELEASE,		// Paused; pause button pressed down, wait until released before returning to previous state
-	FORWARD,							// move straight forward
-	BACKWARD,							// move straight backward
-	REORIENT,							// reorient to original angle
-	TURN								/// Turn
+	NAVIGATION,
+	HILL_CLIMBING
 
 } robotState_t;
 
@@ -47,7 +58,7 @@ typedef enum{
 static void obstable_handler(int32_t,
 							 turn_t*,
 							 bool*,
-							 robotState_t*);
+							 navigationState_t*);
 // ============================================================================================================
 
 void KobukiNavigationStatechart(
@@ -63,7 +74,7 @@ void KobukiNavigationStatechart(
 
 	// local state
 	static robotState_t 		state = INITIAL;				// current program state
-	static robotState_t			unpausedState = FORWARD;			// state history for pause region
+	static robotState_t			unpausedState = NAVIGATION;			// state history for pause region
 	static int32_t				distanceAtManeuverStart = 0;	// distance robot had travelled when a maneuver begins, in mm
 	static int32_t				angleAtManeuverStart = 0;		// angle through which the robot had turned when a maneuver begins, in deg
 
@@ -72,6 +83,8 @@ void KobukiNavigationStatechart(
 	int16_t						rightWheelSpeed = 0;			// speed of the right wheel, in mm/s
 
 	// =========================================== additional variables =========================================== 
+	static navigationState_t	navState = FORWARD;
+	static hillClimbingState_t	hilState = HILL_TRANSITION;
 	static turn_t				defaultTurn = RIGHT;
 	static bool					objHit = false;
 	static int16_t				defaultAngle = 0; // ground direction to head for
@@ -126,78 +139,88 @@ void KobukiNavigationStatechart(
 	//*************************************
 	// GUARD - state transition           *
 	//*************************************
-	/* 
-	..........................................Moving Forward
-	*/
-	else if (state == FORWARD){
-		// --- DISTANCE INTERVAL:
-		//						check for correct angle after every fixed distance
-		if ((netDistance - distanceAtManeuverStart > STANDARD_DISTANCE) &&
-			(abs(netAngle)) > ANGLE_TOLERANCE)
-		//&& (accelAxes.y < ENOUGH_RAMP))
-		{
-			state = REORIENT;
-			goto state_action;
+	/******************************************* Navigation ********************************************/
+	else if (state == NAVIGATION){
+		/* 
+		..........................................Moving Forward
+		*/
+		if (navState == FORWARD){
+			// --- DISTANCE INTERVAL:
+			//						check for correct angle after every fixed distance
+			if ((netDistance - distanceAtManeuverStart > STANDARD_DISTANCE) &&
+				(abs(netAngle)) > ANGLE_TOLERANCE)
+			//&& (accelAxes.y < ENOUGH_RAMP))
+			{
+				navState = REORIENT;
+				goto state_action;
+			}
+			// --- EVENT: bump center
+			//			  ir cliff center
+			else if (sensors.bumps_wheelDrops.bumpCenter ||
+					sensors.cliffCenter)
+			{
+				obstable_handler(angleAtManeuverStart, &defaultTurn, &objHit, &navState);
+			}
+			// --- EVENT: bump right
+			//			  ir cliff right
+			//			  wheeldrop right
+			else if (sensors.bumps_wheelDrops.bumpRight ||
+					sensors.cliffRight || 
+					sensors.bumps_wheelDrops.wheeldropRight)
+			{
+				defaultTurn = LEFT; //default reaction after bumping right
+				// more evaluation before changing state
+				obstable_handler(angleAtManeuverStart, &defaultTurn, &objHit, &navState);
+			}
+			// --- EVENT: bump left
+			//			  ir cliff left
+			//			  wheeldrop left
+			else if (sensors.bumps_wheelDrops.bumpLeft || 
+					sensors.cliffLeft || 
+					sensors.bumps_wheelDrops.wheeldropLeft)
+			{
+				defaultTurn = RIGHT; //default reaction after bumping right
+				// more evaluation before changing state
+				obstable_handler(angleAtManeuverStart, &defaultTurn, &objHit, &navState);
+			}
+			
 		}
-		// --- EVENT: bump center
-		//			  ir cliff center
-		else if (sensors.bumps_wheelDrops.bumpCenter ||
-				 sensors.cliffCenter)
-		{
-			obstable_handler(angleAtManeuverStart, &defaultTurn, &objHit, &state);
+		/* 
+		..........................................Moving Backward
+		*/
+		else if (navState == BACKWARD &&
+				(netDistance - distanceAtManeuverStart > SAFETY_DISTANCE)) {
+			angleAtManeuverStart = netAngle;
+			distanceAtManeuverStart = netDistance;
+			navState = REORIENT;
 		}
-		// --- EVENT: bump right
-		//			  ir cliff right
-		//			  wheeldrop right
-		else if (sensors.bumps_wheelDrops.bumpRight ||
-				 sensors.cliffRight || 
-				 sensors.bumps_wheelDrops.wheeldropRight)
-		{
-			defaultTurn = LEFT; //default reaction after bumping right
-			// more evaluation before changing state
-			obstable_handler(angleAtManeuverStart, &defaultTurn, &objHit, &state);
+		/* 
+		..........................................Reorient to "Default Direction"
+		*/
+		else if (navState == REORIENT &&
+				(abs(netAngle)) < ANGLE_TOLERANCE) {
+			angleAtManeuverStart = netAngle;
+			distanceAtManeuverStart = netDistance;
+			navState = objHit?TURN:FORWARD;
+			objHit = false; //reset the flag
 		}
-		// --- EVENT: bump left
-		//			  ir cliff left
-		//			  wheeldrop left
-		else if (sensors.bumps_wheelDrops.bumpLeft || 
-				 sensors.cliffLeft || 
-				 sensors.bumps_wheelDrops.wheeldropLeft)
-		{
-			defaultTurn = RIGHT; //default reaction after bumping right
-			// more evaluation before changing state
-			obstable_handler(angleAtManeuverStart, &defaultTurn, &objHit, &state);
+		/* 
+		..........................................Turn
+		*/
+		else if (navState == TURN &&
+				(abs(abs(netAngle) - abs(angleAtManeuverStart)) > STANDARD_ROTATION)) {
+			angleAtManeuverStart = netAngle;
+			distanceAtManeuverStart = netDistance;
+			navState = FORWARD;
 		}
-		
-	}
-	/* 
-	..........................................Moving Backward
-	*/
-	else if (state == BACKWARD &&
-			(netDistance - distanceAtManeuverStart > SAFETY_DISTANCE)) {
-		angleAtManeuverStart = netAngle;
-		distanceAtManeuverStart = netDistance;
-		state = REORIENT;
-	}
-	/* 
-	..........................................Reorient to "Default Direction"
-	*/
-	else if (state == REORIENT &&
-			(abs(netAngle)) < ANGLE_TOLERANCE) {
-		angleAtManeuverStart = netAngle;
-		distanceAtManeuverStart = netDistance;
-		state = objHit?TURN:FORWARD;
-		objHit = false; //reset the flag
-	}
-	/* 
-	..........................................Turn
-	*/
-	else if (state == TURN &&
-			(abs(abs(netAngle) - abs(angleAtManeuverStart)) > STANDARD_ROTATION)) {
-		angleAtManeuverStart = netAngle;
-		distanceAtManeuverStart = netDistance;
-		state = FORWARD;
-	}
+	}/**************************************************************************************************/
+	/******************************************* Hill Climbing ********************************************/
+	else if (state == HILL_CLIMBING){
+
+	}/**************************************************************************************************/
+	
+
+	
 	// else, no transitions are taken
 
 	//*****************
@@ -212,28 +235,31 @@ void KobukiNavigationStatechart(
 		// in pause mode, robot should be stopped
 		leftWheelSpeed = rightWheelSpeed = 0;
 		break;
+	case NAVIGATION:
+		switch (navState){
+			case FORWARD:
+			// full speed ahead!
+			leftWheelSpeed = rightWheelSpeed = STANDARD_SPEED;
+			break;
 
-	case FORWARD:
-		// full speed ahead!
-		leftWheelSpeed = rightWheelSpeed = STANDARD_SPEED;
-		break;
-
-	case BACKWARD:
-		// full speed behind!
-		leftWheelSpeed = rightWheelSpeed = -STANDARD_SPEED;
-		break;
-	
-	case REORIENT:
-		//adaptive speed for the reorientation
-		leftWheelSpeed = netAngle*REORIENT_SCALE; //the sign of netAngle will take care of the direction
-		rightWheelSpeed = -leftWheelSpeed;
-		break;
-	case TURN:
-		//adaptive speed for the turn
-		// uint16_t turnSpeed = abs(netAngle)*REORIENT_SCALE;
-		// leftWheelSpeed = (defaultTurn==RIGHT)?(turnSpeed):(-turnSpeed);
-		leftWheelSpeed = (defaultTurn==RIGHT)?(TURN_SPEED):(-TURN_SPEED);
-		rightWheelSpeed = -leftWheelSpeed;
+		case BACKWARD:
+			// full speed behind!
+			leftWheelSpeed = rightWheelSpeed = -STANDARD_SPEED;
+			break;
+		
+		case REORIENT:
+			//adaptive speed for the reorientation
+			leftWheelSpeed = netAngle*REORIENT_SCALE; //the sign of netAngle will take care of the direction
+			rightWheelSpeed = -leftWheelSpeed;
+			break;
+		case TURN:
+			//adaptive speed for the turn
+			// uint16_t turnSpeed = abs(netAngle)*REORIENT_SCALE;
+			// leftWheelSpeed = (defaultTurn==RIGHT)?(turnSpeed):(-turnSpeed);
+			leftWheelSpeed = (defaultTurn==RIGHT)?(TURN_SPEED):(-TURN_SPEED);
+			rightWheelSpeed = -leftWheelSpeed;
+			break;
+			}
 		break;
 
 	default:
@@ -247,10 +273,10 @@ void KobukiNavigationStatechart(
 	*pRightWheelSpeed = rightWheelSpeed;
 }
 
-static void obstable_handler(int32_t 		angleAtManeuverStart,
-							 turn_t 		*defaultTurn,
-							 bool 			*objHit,
-							 robotState_t	*state)
+static void obstable_handler(int32_t 			angleAtManeuverStart,
+							 turn_t 			*defaultTurn,
+							 bool 				*objHit,
+							 navigationState_t	*state)
 {
 	*objHit = true;
 	
