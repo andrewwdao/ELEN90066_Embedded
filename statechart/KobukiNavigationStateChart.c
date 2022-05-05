@@ -145,6 +145,7 @@ void KobukiNavigationStatechart(
 		..........................................Moving Forward
 		*/
 		if (navState == FORWARD){
+			/* @@@@@@@@@@@@ Guard 1: transition to REORIENT @@@@@@@@@@@@*/
 			// --- DISTANCE INTERVAL:
 			//						check for correct angle after every fixed distance
 			if ((netDistance - distanceAtManeuverStart > STANDARD_DISTANCE) &&
@@ -154,6 +155,8 @@ void KobukiNavigationStatechart(
 				navState = REORIENT;
 				goto state_action;
 			}
+			
+			/* @@@@@@@@@@@@ Guard 2: transition to BACKWARD @@@@@@@@@@@@*/
 			// --- EVENT: bump center
 			//			  ir cliff center
 			else if (sensors.bumps_wheelDrops.bumpCenter ||
@@ -183,20 +186,24 @@ void KobukiNavigationStatechart(
 				// more evaluation before changing state
 				obstable_handler(angleAtManeuverStart, &defaultTurn, &objHit, &navState);
 			}
+			/* @@@@@@@@@@@@@@@@@@@@@@@ END GUARD @@@@@@@@@@@@@@@@@@@@@@*/
 			
 		}
 		/* 
 		..........................................Moving Backward
 		*/
+		/* @@@@@@@@@@@@ Guard 1: transition to REORIENT @@@@@@@@@@@@*/
 		else if (navState == BACKWARD &&
 				(netDistance - distanceAtManeuverStart > SAFETY_DISTANCE)) {
 			angleAtManeuverStart = netAngle;
 			distanceAtManeuverStart = netDistance;
 			navState = REORIENT;
 		}
+		/* @@@@@@@@@@@@@@@@@@@@@@@ END GUARD @@@@@@@@@@@@@@@@@@@@@@*/
 		/* 
 		..........................................Reorient to "Default Direction"
 		*/
+		/* @@@@@@@@@@@@ Guard 1+2: transition to TURN or FORWARD @@@@@@@@@@@@*/
 		else if (navState == REORIENT &&
 				(abs(netAngle)) < ANGLE_TOLERANCE) {
 			angleAtManeuverStart = netAngle;
@@ -204,15 +211,18 @@ void KobukiNavigationStatechart(
 			navState = objHit?TURN:FORWARD;
 			objHit = false; //reset the flag
 		}
+		/* @@@@@@@@@@@@@@@@@@@@@@@ END GUARD @@@@@@@@@@@@@@@@@@@@@@*/
 		/* 
 		..........................................Turn
 		*/
+		/* @@@@@@@@@@@@ Guard 1: transition to FORWARD @@@@@@@@@@@@*/
 		else if (navState == TURN &&
 				(abs(abs(netAngle) - abs(angleAtManeuverStart)) > STANDARD_ROTATION)) {
 			angleAtManeuverStart = netAngle;
 			distanceAtManeuverStart = netDistance;
 			navState = FORWARD;
 		}
+		/* @@@@@@@@@@@@@@@@@@@@@@@ END GUARD @@@@@@@@@@@@@@@@@@@@@@*/
 	}/**************************************************************************************************/
 	/******************************************* Hill Climbing ********************************************/
 	else if (state == HILL_CLIMBING){
