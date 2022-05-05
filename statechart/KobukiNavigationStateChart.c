@@ -69,6 +69,7 @@ static void navigation_guard_handler(navigationState_t*,
 							   		 int32_t,
 							   		 int32_t*,
 							   		 int32_t*,
+									 int16_t,
 							   		 KobukiSensors_t,
 							   		 turn_t*,
 							   		 bool*);
@@ -183,6 +184,7 @@ void KobukiNavigationStatechart(
 								 netAngle,
 								 &distanceAtManeuverStart,
 								 &angleAtManeuverStart,
+								 defaultAngle,
 								 sensors,
 								 &defaultTurn,
 								 &objHit);
@@ -345,6 +347,7 @@ static void navigation_guard_handler(navigationState_t*		navState,
 							   		 int32_t				netAngle,
 							   		 int32_t*				distanceAtManeuverStart,
 							   		 int32_t*				angleAtManeuverStart,
+									 int16_t				defaultAngle,
 							   		 KobukiSensors_t		sensors,
 							   		 turn_t*				defaultTurn,
 							   		 bool*					objHit)
@@ -357,7 +360,7 @@ static void navigation_guard_handler(navigationState_t*		navState,
 			// --- DISTANCE INTERVAL:
 			//						check for correct angle after every fixed distance
 			if ((netDistance - *distanceAtManeuverStart > STANDARD_DISTANCE) &&
-				(abs(netAngle)) > ANGLE_TOLERANCE)
+				(abs(netAngle)) > abs(defaultAngle) + ANGLE_TOLERANCE)
 			{
 				*navState = REORIENT;
 				return;//goto state_action;
@@ -369,6 +372,7 @@ static void navigation_guard_handler(navigationState_t*		navState,
 			else if (sensors.bumps_wheelDrops.bumpCenter ||
 					sensors.cliffCenter)
 			{
+				*distanceAtManeuverStart = netDistance;
 				obstable_handler(*angleAtManeuverStart, defaultTurn, objHit, navState);
 			}
 			/* @@@@@@@@@@@@ GUARD 3: transition to BACKWARD @@@@@@@@@@@@*/
@@ -379,6 +383,7 @@ static void navigation_guard_handler(navigationState_t*		navState,
 					sensors.cliffRight || 
 					sensors.bumps_wheelDrops.wheeldropRight)
 			{
+				*distanceAtManeuverStart = netDistance;
 				*defaultTurn = LEFT; //default reaction after bumping right
 				// more evaluation before changing state
 				obstable_handler(*angleAtManeuverStart, defaultTurn, objHit, navState);
@@ -391,6 +396,7 @@ static void navigation_guard_handler(navigationState_t*		navState,
 					sensors.cliffLeft || 
 					sensors.bumps_wheelDrops.wheeldropLeft)
 			{
+				*distanceAtManeuverStart = netDistance;
 				*defaultTurn = RIGHT; //default reaction after bumping right
 				// more evaluation before changing state
 				obstable_handler(*angleAtManeuverStart, defaultTurn, objHit, navState);
@@ -404,8 +410,6 @@ static void navigation_guard_handler(navigationState_t*		navState,
 		/* @@@@@@@@@@@@ GUARD 1: transition to REORIENT @@@@@@@@@@@@*/
 		else if (*navState == BACKWARD &&
 				(netDistance - *distanceAtManeuverStart > SAFETY_DISTANCE)) {
-			*angleAtManeuverStart = netAngle;
-			*distanceAtManeuverStart = netDistance;
 			*navState = REORIENT;
 		}
 		/* @@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@*/
@@ -414,7 +418,8 @@ static void navigation_guard_handler(navigationState_t*		navState,
 		*/
 		/* @@@@@@@@@@@@ GUARD 1+2: transition to TURN or FORWARD @@@@@@@@@@@@*/
 		else if (*navState == REORIENT &&
-				(abs(netAngle)) < ANGLE_TOLERANCE) {
+				(abs(netAngle) < abs(defaultAngle) + ANGLE_TOLERANCE) && 
+				(netAngle*defaultAngle >= 0)) { //check for the agrement on the sign to make sure it exit at the correct angle
 			*angleAtManeuverStart = netAngle;
 			*distanceAtManeuverStart = netDistance;
 			*navState = *objHit?TURN:FORWARD;
@@ -426,8 +431,8 @@ static void navigation_guard_handler(navigationState_t*		navState,
 		*/
 		/* @@@@@@@@@@@@ GUARD 1: transition to FORWARD @@@@@@@@@@@@*/
 		else if (*navState == TURN &&
-				(abs(abs(netAngle) - abs(*angleAtManeuverStart)) > STANDARD_ROTATION)) {
-			*angleAtManeuverStart = netAngle;
+				(abs(abs(netAngle) - abs(*angleAtManeuverStart)) > abs(defaultAngle) + STANDARD_ROTATION) &&
+				(netAngle*defaultAngle >= 0)) { //check for the agrement on the sign to make sure it exit at the correct angle
 			*distanceAtManeuverStart = netDistance;
 			*navState = FORWARD;
 		}
