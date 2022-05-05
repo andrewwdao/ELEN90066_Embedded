@@ -47,7 +47,6 @@ typedef enum{
 	PAUSE_WAIT_BUTTON_RELEASE,			// Paused; pause button pressed down, wait until released before detecting next press
 	UNPAUSE_WAIT_BUTTON_PRESS,			// Paused; wait for pause button to be pressed
 	UNPAUSE_WAIT_BUTTON_RELEASE,		// Paused; pause button pressed down, wait until released before returning to previous state
-	HILL_DETECTING,
 	NAVIGATION,
 	HILL_CLIMBING
 
@@ -59,20 +58,26 @@ typedef enum{
 
 // =========================================== additional functions =========================================== 
 
-static void obstable_handler(int32_t,
-							 turn_t*,
-							 bool*,
-							 navigationState_t*);
+static void __obstable_handler(int32_t,
+							   turn_t*,
+							   bool*,
+							   navigationState_t*);
 
-static void navigation_guard_handler(navigationState_t*,
-								     int32_t,
-							   		 int32_t,
-							   		 int32_t*,
-							   		 int32_t*,
-									 int16_t,
-							   		 KobukiSensors_t,
-							   		 turn_t*,
-							   		 bool*);
+static void _navigation_guard_handler(navigationState_t*,
+								      int32_t,
+							   		  int32_t,
+							   		  int32_t*,
+							   		  int32_t*,
+									  int16_t,
+							   		  KobukiSensors_t,
+							   		  turn_t*,
+							   		  bool*);
+static void _navigation_action_handler(navigationState_t,
+			  						   int32_t,
+									   turn_t,
+									   int16_t*,
+								       int16_t*);
+
 // ============================================================================================================
 
 void KobukiNavigationStatechart(
@@ -88,7 +93,7 @@ void KobukiNavigationStatechart(
 
 	// local state
 	static robotState_t 		state = INITIAL;				// current program state
-	static robotState_t			unpausedState = HILL_DETECTING;	// state history for pause region
+	static robotState_t			unpausedState = NAVIGATION;	// state history for pause region
 	static int32_t				distanceAtManeuverStart = 0;	// distance robot had travelled when a maneuver begins, in mm
 	static int32_t				angleAtManeuverStart = 0;		// angle through which the robot had turned when a maneuver begins, in deg
 
@@ -100,9 +105,9 @@ void KobukiNavigationStatechart(
 	static navigationState_t	navState = FORWARD;
 	static hillClimbingState_t	hilState = HILL_TRANSITION;
 	static turn_t				defaultTurn = RIGHT;
-	static bool					objHit = false;
 	static int16_t				defaultAngle = 0; // ground direction to head for
-
+	static bool					objHit = false;
+	
 	static bool					hillNavigationMode = false;
 	static bool					startupOnHill = false;
 	static bool 				reachEndofHill = false;
@@ -159,15 +164,15 @@ void KobukiNavigationStatechart(
 	// GUARD - state transition           *
 	//*************************************
 	/******************************************* Inital Hill Detecting ********************************************/
-	else if (state == HILL_DETECTING){
-		if (accelAxes.x > X_AXIS_THRESHOLD) {
-			startupOnHill = true;
-			state = HILL_CLIMBING;
-			goto state_action;
-		}
-		startupOnHill = false;
-		state = NAVIGATION;
-	}/**************************************************************************************************/
+	// else if (state == HILL_DETECTING){
+	// 	if (accelAxes.x > X_AXIS_THRESHOLD) {
+	// 		startupOnHill = true;
+	// 		state = HILL_CLIMBING;
+	// 		goto state_action;
+	// 	}
+	// 	startupOnHill = false;
+	// 	state = NAVIGATION;
+	// }/**************************************************************************************************/
 
 	/******************************************* Navigation ********************************************/
 	else if (state == NAVIGATION){
@@ -177,17 +182,18 @@ void KobukiNavigationStatechart(
 		// 	state = HILL_CLIMBING;
 		// 	goto state_action;
 		// }
-		/* @@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@*/
+		/* @@@@@@@@@ NAVIGATION GUARD 1: operate based on navState @@@@@@@@@@*/
+		_navigation_guard_handler(&navState,
+								  netDistance,
+								  netAngle,
+								  &distanceAtManeuverStart,
+								  &angleAtManeuverStart,
+								  defaultAngle,
+								  sensors,
+								  &defaultTurn,
+								  &objHit);
+		/* @@@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 
-		navigation_guard_handler(&navState,
-								 netDistance,
-								 netAngle,
-								 &distanceAtManeuverStart,
-								 &angleAtManeuverStart,
-								 defaultAngle,
-								 sensors,
-								 &defaultTurn,
-								 &objHit);
 
 	}/**************************************************************************************************/
 	/******************************************* Hill Climbing ********************************************/
@@ -196,22 +202,23 @@ void KobukiNavigationStatechart(
 		..........................................Hill Transition
 		*/
 		if (hilState == HILL_TRANSITION) {
-			/* @@@@@@@@@@@@ GUARD 1: transition to HILL_NAVIGATION @@@@@@@@@@@@*/
-			// 				Done reorient itself to the direction of the hill
-			if (Y_AXIS_LOWER_THRESHOLD < accelAxes.y || accelAxes.y < Y_AXIS_UPPER_THRESHOLD) {
-				defaultAngle = netAngle;
-				hillNavigationMode = true;
-				navState = FORWARD;
-				state = NAVIGATION;
-			}
-			/* @@@@@@@@@@@@ GUARD 2+3: transition to HILL_NAVIGATION @@@@@@@@@@@@*/
+			/* @@@@@@@@@@@@ GUARD 1+2: transition to HILL_HALT @@@@@@@@@@@@*/
 			// 				Done hill enter or hill exit
-			else if ((abs(accelAxes.x) < X_AXIS_THRESHOLD) &&
+			if ((abs(accelAxes.x) < X_AXIS_THRESHOLD) &&
 					 (startupOnHill && cliffEdgeCnt==3)	   ||
 					 (!startupOnHill&& cliffEdgeCnt==4)) {
 				startupOnHill = false;
-				angleAtManeuverStart = netAngle;
+				distanceAtManeuverStart = netDistance;
 				hilState = HILL_HALT;
+			}
+			/* @@@@@@@@@@@@ GUARD 1: transition to HILL_NAVIGATION @@@@@@@@@@@@*/
+			// 				Done reorient itself to the direction of the hill
+			else if (accelAxes.y > Y_AXIS_LOWER_THRESHOLD || 
+					 accelAxes.y < Y_AXIS_UPPER_THRESHOLD) {
+				defaultAngle = netAngle;
+				hillNavigationMode = true;
+				navState = FORWARD;
+				hilState = HILL_NAVIGATION;
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		}
@@ -219,31 +226,59 @@ void KobukiNavigationStatechart(
 		/* 
 		..........................................Hill Navigation
 		*/
-		/* @@@@@@@@@@@@ GUARD 1: transition to HILL_LIMIT_TRANSITION @@@@@@@@@@@@*/
-		// 				reached impassible obstacle, redefine the default angle then change state
-		else if (hilState == HILL_NAVIGATION &&
-		    sensors.cliffCenter) {
-			int32_t buffer = defaultAngle + 180; // turn around
-			defaultAngle = (buffer>180)?(defaultAngle-180):buffer;
-			hilState = HILL_LIMIT_TRANSITION; //basically just the same as turn
+		else if (hilState == HILL_NAVIGATION) {
+			/* @@@@@@@@@@@@ GUARD 1: transition to HILL_LIMIT_TRANSITION @@@@@@@@@@@@*/
+			// 				reached impassible obstacle, redefine the default angle then change state
+			if (sensors.cliffCenter) {
+				int32_t buffer = defaultAngle + 180; // turn around
+				defaultAngle = (buffer>180)?(defaultAngle-180):buffer;
+				hilState = HILL_LIMIT_TRANSITION; //basically just the same as turn
+			}
+			/* @@@@@@@@@@@@ GUARD 2+3: transition to HILL_LIMIT_TRANSITION @@@@@@@@@@@@*/
+			// 				Transition from Hill to Flat (maybe flat-->uphill or downhill-->flat)
+			else if (abs(accelAxes.x) < X_AXIS_THRESHOLD) {
+				cliffEdgeCnt++;
+				angleAtManeuverStart = netAngle;
+				hilState = HILL_TRANSITION;
+			}
+			/* @@@@@@@@@ NAVIGATION GUARD 1: operate based on navState @@@@@@@@@@*/
+			_navigation_guard_handler(&navState,
+									netDistance,
+									netAngle,
+									&distanceAtManeuverStart,
+									&angleAtManeuverStart,
+									defaultAngle,
+									sensors,
+									&defaultTurn,
+									&objHit);
+			/* @@@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		}
-		/* @@@@@@@@@@@@ GUARD 2+3: transition to HILL_LIMIT_TRANSITION @@@@@@@@@@@@*/
-		// 				Done hill enter or hill exit
-		else if (hilState == HILL_NAVIGATION &&
-		    abs(accelAxes.x) < X_AXIS_THRESHOLD) { 
-			angleAtManeuverStart = netAngle;
-			hilState = HILL_TRANSITION;
-		}
+		 	
 		/* 
 		..........................................Hill Limit Transition
 		*/
 		/* @@@@@@@@@@@@ GUARD 1: transition to HILL_NAVIGATION @@@@@@@@@@@@*/
-		// 				reached impassible obstacle
+		// 				after turning to adjust to the new defaultAngle
 		else if (hilState == HILL_LIMIT_TRANSITION &&
-		    sensors.cliffCenter) {
-			int32_t buffer = defaultAngle + 180; // turn around
-			defaultAngle = (buffer>180)?(defaultAngle-180):buffer;
+				(abs(abs(netAngle) - abs(angleAtManeuverStart)) > abs(defaultAngle) + STANDARD_ROTATION) &&
+				(netAngle*defaultAngle >= 0)) { //check for the agrement on the sign to make sure it exit at the correct angle
+			distanceAtManeuverStart = netDistance;
 			hilState = HILL_NAVIGATION;
+		}
+		/* 
+		..........................................Hill Limit Transition
+		*/
+		/* @@@@@@@@@@@@ GUARD 1: transition to INITIAL @@@@@@@@@@@@*/
+		// 				done task, equivalent to (very) soft reset.
+		else if (hilState == HILL_HALT) {
+			state = INITIAL;
+			unpausedState = NAVIGATION;
+			navState = FORWARD;
+			hilState = HILL_TRANSITION;
+			defaultTurn = RIGHT;
+			defaultAngle = 0;
+			cliffEdgeCnt = 0;
+			objHit = false;
 		}
 	}/**************************************************************************************************/
 	
@@ -256,65 +291,40 @@ void KobukiNavigationStatechart(
 	//*****************
 	state_action:
 	switch (state){
-	case INITIAL:
-	case PAUSE_WAIT_BUTTON_RELEASE:
-	case UNPAUSE_WAIT_BUTTON_PRESS:
-	case UNPAUSE_WAIT_BUTTON_RELEASE:
-		// in pause mode, robot should be stopped
-		leftWheelSpeed = rightWheelSpeed = 0;
-		break;
 	case NAVIGATION:
-		switch (navState){
-			case FORWARD:
-				// full speed ahead!
-				leftWheelSpeed = rightWheelSpeed = STANDARD_SPEED;
-				break;
-
-			case BACKWARD:
-				// full speed behind!
-				leftWheelSpeed = rightWheelSpeed = -STANDARD_SPEED;
-				break;
-			
-			case REORIENT:
-				//adaptive speed for the reorientation
-				leftWheelSpeed = netAngle*REORIENT_SCALE; //the sign of netAngle will take care of the direction
-				rightWheelSpeed = -leftWheelSpeed;
-				break;
-			case TURN:
-				//adaptive speed for the turn
-				// uint16_t turnSpeed = abs(netAngle)*REORIENT_SCALE;
-				// leftWheelSpeed = (defaultTurn==RIGHT)?(turnSpeed):(-turnSpeed);
-				leftWheelSpeed = (defaultTurn==RIGHT)?(TURN_SPEED):(-TURN_SPEED);
-				rightWheelSpeed = -leftWheelSpeed;
-				break;
-		}
+		_navigation_action_handler(navState,netAngle,defaultTurn,&leftWheelSpeed,&rightWheelSpeed);
 		break;
 	case HILL_CLIMBING:
 		switch (hilState)
 		{
 			case HILL_TRANSITION:
 				// basically turn
-				rightWheelSpeed = accelAxes.y*200*REORIENT_SCALE; //the sign of netAngle will take care of the direction
-				leftWheelSpeed = -leftWheelSpeed;
+				rightWheelSpeed = (double)(accelAxes.y*200.0*REORIENT_SCALE); //the sign of netAngle will take care of the direction
+				leftWheelSpeed = -rightWheelSpeed;
 				break;
+
 			case HILL_NAVIGATION:
-				// full speed ahead!
-				leftWheelSpeed = rightWheelSpeed = 100;
+				_navigation_action_handler(navState,netAngle,defaultTurn,&leftWheelSpeed,&rightWheelSpeed);
 				break;
-		case HILL_LIMIT_TRANSITION:
-			int32_t buffer = defaultAngle + 180; // turn around
-			defaultAngle = (buffer>180)?(defaultAngle-180):buffer;
-			break;
-		
-		default:
-			// Unknown state
-			leftWheelSpeed = rightWheelSpeed = 0;
-			break;
+
+			case HILL_LIMIT_TRANSITION:
+				leftWheelSpeed = (defaultTurn==RIGHT)?(TURN_SPEED):(-TURN_SPEED);
+				rightWheelSpeed = -leftWheelSpeed;
+				break;
+
+			case HILL_HALT:
+			default:
+				// Unknown state
+				leftWheelSpeed = rightWheelSpeed = 0;
+				break;
 		}
 		break;
-	case HILL_DETECTING:
+	case INITIAL:
+	case PAUSE_WAIT_BUTTON_RELEASE:
+	case UNPAUSE_WAIT_BUTTON_PRESS:
+	case UNPAUSE_WAIT_BUTTON_RELEASE:
 	default:
-		// Unknown state
+		// in pause mode or unknown state, robot should be stopped
 		leftWheelSpeed = rightWheelSpeed = 0;
 		break;
 	}
@@ -324,10 +334,10 @@ void KobukiNavigationStatechart(
 	*pRightWheelSpeed = rightWheelSpeed;
 }
 
-static void obstable_handler(int32_t 			angleAtManeuverStart,
-							 turn_t 			*defaultTurn,
-							 bool 				*objHit,
-							 navigationState_t	*state)
+static void __obstable_handler(int32_t 				angleAtManeuverStart,
+							   turn_t* 				defaultTurn,
+							   bool* 				objHit,
+							   navigationState_t*	state)
 {
 	*objHit = true;
 	
@@ -342,15 +352,15 @@ static void obstable_handler(int32_t 			angleAtManeuverStart,
 	// auto go to state_action after this line
 }
 
-static void navigation_guard_handler(navigationState_t*		navState,
-								     int32_t				netDistance,
-							   		 int32_t				netAngle,
-							   		 int32_t*				distanceAtManeuverStart,
-							   		 int32_t*				angleAtManeuverStart,
-									 int16_t				defaultAngle,
-							   		 KobukiSensors_t		sensors,
-							   		 turn_t*				defaultTurn,
-							   		 bool*					objHit)
+static void _navigation_guard_handler(navigationState_t*		navState,
+								      int32_t				netDistance,
+							   		  int32_t				netAngle,
+							   		  int32_t*				distanceAtManeuverStart,
+							   		  int32_t*				angleAtManeuverStart,
+									  int16_t				defaultAngle,
+							   		  KobukiSensors_t		sensors,
+							   		  turn_t*				defaultTurn,
+							   		  bool*					objHit)
 {
 	/* 
 		..........................................Moving Forward
@@ -373,7 +383,7 @@ static void navigation_guard_handler(navigationState_t*		navState,
 					sensors.cliffCenter)
 			{
 				*distanceAtManeuverStart = netDistance;
-				obstable_handler(*angleAtManeuverStart, defaultTurn, objHit, navState);
+				__obstable_handler(*angleAtManeuverStart, defaultTurn, objHit, navState);
 			}
 			/* @@@@@@@@@@@@ GUARD 3: transition to BACKWARD @@@@@@@@@@@@*/
 			// --- EVENT: bump right
@@ -386,7 +396,7 @@ static void navigation_guard_handler(navigationState_t*		navState,
 				*distanceAtManeuverStart = netDistance;
 				*defaultTurn = LEFT; //default reaction after bumping right
 				// more evaluation before changing state
-				obstable_handler(*angleAtManeuverStart, defaultTurn, objHit, navState);
+				__obstable_handler(*angleAtManeuverStart, defaultTurn, objHit, navState);
 			}
 			/* @@@@@@@@@@@@ GUARD 4: transition to BACKWARD @@@@@@@@@@@@*/
 			// --- EVENT: bump left
@@ -399,7 +409,7 @@ static void navigation_guard_handler(navigationState_t*		navState,
 				*distanceAtManeuverStart = netDistance;
 				*defaultTurn = RIGHT; //default reaction after bumping right
 				// more evaluation before changing state
-				obstable_handler(*angleAtManeuverStart, defaultTurn, objHit, navState);
+				__obstable_handler(*angleAtManeuverStart, defaultTurn, objHit, navState);
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@*/
 			
@@ -437,4 +447,42 @@ static void navigation_guard_handler(navigationState_t*		navState,
 			*navState = FORWARD;
 		}
 		/* @@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@*/
+}
+
+static void _navigation_action_handler(navigationState_t navState,
+			  						   int32_t			  netAngle,
+									   turn_t			  defaultTurn,
+									   int16_t*		  leftWheelSpeed,
+									   int16_t*		  rightWheelSpeed)
+{
+	switch (navState){
+		case FORWARD:
+			// full speed ahead!
+			*leftWheelSpeed = *rightWheelSpeed = STANDARD_SPEED;
+			break;
+
+		case BACKWARD:
+			// full speed behind!
+			*leftWheelSpeed = *rightWheelSpeed = -STANDARD_SPEED;
+			break;
+		
+		case REORIENT:
+			//adaptive speed for the reorientation
+			*leftWheelSpeed = netAngle*REORIENT_SCALE; //the sign of netAngle will take care of the direction
+			*rightWheelSpeed = -*leftWheelSpeed;
+			break;
+
+		case TURN:
+			//adaptive speed for the turn
+			// uint16_t turnSpeed = abs(netAngle)*REORIENT_SCALE;
+			// leftWheelSpeed = (defaultTurn==RIGHT)?(turnSpeed):(-turnSpeed);
+			*leftWheelSpeed = (defaultTurn==RIGHT)?(TURN_SPEED):(-TURN_SPEED);
+			*rightWheelSpeed = -*leftWheelSpeed;
+			break;
+
+		default:
+			// Unknown state
+			leftWheelSpeed = rightWheelSpeed = 0;
+			break;
+	}
 }
