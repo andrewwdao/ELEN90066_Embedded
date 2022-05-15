@@ -86,14 +86,18 @@
   <ItemGroup>
     <ClCompile Include="..\..\kobuki\KobukiSensors.c" />
     <ClCompile Include="..\..\kobuki\KobukiStateChartSimShell.c" />
+    <ClCompile Include="..\kalmanFilter.c" />
     <ClCompile Include="..\KobukiNavigationStateChart.c" />
+    <ClCompile Include="..\MAFilter.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\kobuki\KobukiSensors.h" />
     <ClInclude Include="..\..\kobuki\KobukiSensorType.h" />
     <ClInclude Include="..\..\visa\visa.h" />
     <ClInclude Include="..\..\visa\visatype.h" />
+    <ClInclude Include="..\kalmanFilter.h" />
     <ClInclude Include="..\KobukiNavigationStateChart.h" />
+    <ClInclude Include="..\MAFilter.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="..\..\visa\visa32.lib" />

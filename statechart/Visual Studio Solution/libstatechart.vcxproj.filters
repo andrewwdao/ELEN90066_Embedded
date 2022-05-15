@@ -27,6 +27,12 @@
     <ClCompile Include="..\..\kobuki\KobukiStateChartSimShell.c">
       <Filter>target\simulator</Filter>
     </ClCompile>
+    <ClCompile Include="..\MAFilter.c">
+      <Filter>C Statechart</Filter>
+    </ClCompile>
+    <ClCompile Include="..\kalmanFilter.c">
+      <Filter>C Statechart</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\KobukiNavigationStateChart.h">
@@ -43,6 +49,12 @@
     </ClInclude>
     <ClInclude Include="..\..\visa\visatype.h">
       <Filter>visa</Filter>
+    </ClInclude>
+    <ClInclude Include="..\MAFilter.h">
+      <Filter>C Statechart</Filter>
+    </ClInclude>
+    <ClInclude Include="..\kalmanFilter.h">
+      <Filter>C Statechart</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
