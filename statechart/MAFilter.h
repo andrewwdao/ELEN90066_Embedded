@@ -15,6 +15,9 @@ extern "C" {
 #endif
 
 // ------ Public constants ------------------------------------
+# define int16_t short
+# define int32_t int
+# define int64_t long int
 // ------ Public function prototypes --------------------------
 /**
  * @brief MAFILTER init function (public)

@@ -12,7 +12,7 @@
 
 // =========================================== additional definitions =========================================== 
 // User defined constants
-#define	SAFETY_DISTANCE		50	//mm
+#define	SAFETY_DISTANCE		20	//mm
 #define	STANDARD_DISTANCE	200 //mm
 #define STANDARD_SPEED		200
 #define TURN_SPEED			100
@@ -21,22 +21,22 @@
 #define LIMIT_TRANSITION_ANGLE	175 //deg
 #define ANGLE_TOLERANCE		3	//deg
 #define REORIENT_SCALE		5	// MAXIMUM_ANGLE*REORIENT_SCALE has to smaller than 500
-#define X_AXIS_UPWARD_LOWER_THRESHOLD	0.13
+#define X_AXIS_UPWARD_THRESHOLD	0.17
 // #define X_AXIS_UPWARD_UPPER_THRESHOLD	0.
 // #define X_AXIS_DOWNWARD_LOWER_THRESHOLD	-0.03
-#define X_AXIS_DOWNWARD_UPPER_THRESHOLD	-0.15
+#define X_AXIS_DOWNWARD_THRESHOLD	-0.25
 // #define Y_AXIS_UPWARD_LOWER_THRESHOLD	0.07 // simulation:0.6
 // #define Y_AXIS_UPWARD_UPPER_THRESHOLD	0.08 
 // #define Y_AXIS_DOWNWARD_LOWER_THRESHOLD	-0.12 // simulation:0.11
 // #define Y_AXIS_DOWNWARD_UPPER_THRESHOLD	-0.10
 // #define Y_AXIS_FLAT_LOWER_THRESHOLD		-0.04 // simulation: -0.03
 // #define Y_AXIS_FLAT_UPPER_THRESHOLD		-0.02
-#define Y_AXIS_UPWARD_LOWER_THRESHOLD	0.01 // simulation:0.6
-#define Y_AXIS_UPWARD_UPPER_THRESHOLD	0.03 
-#define Y_AXIS_DOWNWARD_LOWER_THRESHOLD	0.01 // simulation:0.11
-#define Y_AXIS_DOWNWARD_UPPER_THRESHOLD	0.03
-#define Y_AXIS_FLAT_LOWER_THRESHOLD		0.01 // simulation: -0.03
-#define Y_AXIS_FLAT_UPPER_THRESHOLD		0.03
+#define Y_AXIS_UPWARD_LOWER_THRESHOLD	0.00 // simulation:0.6
+#define Y_AXIS_UPWARD_UPPER_THRESHOLD	0.02 
+#define Y_AXIS_DOWNWARD_LOWER_THRESHOLD	0.00 // simulation:0.11
+#define Y_AXIS_DOWNWARD_UPPER_THRESHOLD	0.02
+#define Y_AXIS_FLAT_LOWER_THRESHOLD		0.00 // simulation: -0.03
+#define Y_AXIS_FLAT_UPPER_THRESHOLD		0.02
 #define CLIFF_SENSOR_OFFSET		746
 #define CLIFF_SENSOR_LOWER_TOLERANCE	2
 #define CLIFF_SENSOR_HIGHER_TOLERANCE	20
@@ -67,9 +67,9 @@ typedef enum{
 typedef enum{
 	HILL_REORIENT=0,
 	HILL_UPWARD,
-	HILL_FORWARD,
-	HILL_SAFETY_BACKWARD,
-	HILL_LIMIT_TRANSITION,
+	// HILL_FORWARD,
+	// HILL_SAFETY_BACKWARD,
+	// HILL_LIMIT_TRANSITION,
 	HILL_FLAT_CLIFF_TRANSITION,
 	HILL_DOWNWARD,
 	HILL_FORWARD_SAFTY,
@@ -218,7 +218,7 @@ void KobukiNavigationStatechart(
 		/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		// buffer_x = KMFilter_x(accelAxes.x);
 		buffer_x = MAFilter_x(accelAxes.x);
-		if  ((buffer_x > X_AXIS_UPWARD_LOWER_THRESHOLD)) {
+		if  ((buffer_x > X_AXIS_UPWARD_THRESHOLD)) {
 			state = HILL_CLIMBING;
 			hilState = HILL_REORIENT;
 			goto state_action;
@@ -265,83 +265,85 @@ void KobukiNavigationStatechart(
 			//  redefine the default angle then change state
 			// buffer_x = MAFilter_x(accelAxes.x);
 			buffer_x = accelAxes.x;
-			if (sensors.cliffCenter) {
-				// buffer_x > X_AXIS_DOWNWARD_UPPER_THRESHOLD &&
-				// buffer_x < X_AXIS_UPWARD_LOWER_THRESHOLD) {
+			if (buffer_x < X_AXIS_DOWNWARD_THRESHOLD) {
 				distanceAtManeuverStart = netDistance;
-				hilState = HILL_SAFETY_BACKWARD; //basically just the same as turn
+				// hilState = HILL_SAFETY_BACKWARD; //basically just the same as turn
+				// hilState = FORWARD;
+				hilState = HILL_FLAT_CLIFF_TRANSITION;
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		}
 		/* 
 		..........................................Moving Backward
 		*/
-		else if (hilState == HILL_SAFETY_BACKWARD) {
+		// else if (hilState == HILL_SAFETY_BACKWARD) {
 				
-			/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
-			// 				after backward a safety distance
-			if (netDistance - distanceAtManeuverStart > SAFETY_DISTANCE) {
-				defaultAngle = (netAngle>0)?(netAngle-LIMIT_TRANSITION_ANGLE):(netAngle+LIMIT_TRANSITION_ANGLE);
-				hilState = HILL_LIMIT_TRANSITION;
-				goto state_action;
-			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-			}
-		}
+		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
+		// 	// 				after backward a safety distance
+		// 	if (netDistance - distanceAtManeuverStart > SAFETY_DISTANCE) {
+		// 		defaultAngle = (netAngle>0)?(netAngle-LIMIT_TRANSITION_ANGLE):(netAngle+LIMIT_TRANSITION_ANGLE);
+		// 		hilState = HILL_LIMIT_TRANSITION;
+		// 		goto state_action;
+		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
+		// 	}
+		// }
 		/* 
 		..........................................Hill Limit Transition
 		*/
-		else if (hilState == HILL_LIMIT_TRANSITION) {
+		// else if (hilState == HILL_LIMIT_TRANSITION) {
 			
-			/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
-			// 		if finish turning to adjust to the new defaultAngle
-			if (abs(abs(netAngle) - abs(defaultAngle)) < ANGLE_TOLERANCE &&
-				netAngle*defaultAngle >= 0) { //check for the agrement on the sign to make sure it exit at the correct angle
-				/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1.1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
-				// 				If still on the hill
-				// buffer_x = MAFilter_x(accelAxes.x);
-				// buffer_x = accelAxes.x;
-				// if (buffer_x < X_AXIS_DOWNWARD_UPPER_THRESHOLD) {
-				// 	hilState = HILL_FLAT_CLIFF_TRANSITION;
-				// } else {
-				// 	// for simulation only
-				// // buffer_y = MAFilter_y(accelAxes.y);
-				// // if (buffer_y > Y_AXIS_FLAT_UPPER_THRESHOLD || 
-				// // 	buffer_y < Y_AXIS_FLAT_LOWER_THRESHOLD) {
-				// // 	hilState = HILL_FLAT_CLIFF_TRANSITION;
-				// // } else {
-				// /* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1.2: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
-				// // 				currently on a flat surface
-				// 	hilState = HILL_FORWARD;
-				// }
-				hilState = HILL_FLAT_CLIFF_TRANSITION;
-				goto state_action;
-			}
-			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-		}
+		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
+		// 	// 		if finish turning to adjust to the new defaultAngle
+		// 	if (abs(abs(netAngle) - abs(defaultAngle)) < ANGLE_TOLERANCE &&
+		// 		netAngle*defaultAngle >= 0) { //check for the agrement on the sign to make sure it exit at the correct angle
+		// 		/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1.1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
+		// 		// 				If still on the hill
+		// 		// buffer_x = MAFilter_x(accelAxes.x);
+		// 		// buffer_x = accelAxes.x;
+		// 		// if (buffer_x < X_AXIS_DOWNWARD_THRESHOLD) {
+		// 		// 	hilState = HILL_FLAT_CLIFF_TRANSITION;
+		// 		// } else {
+		// 		// 	// for simulation only
+		// 		// // buffer_y = MAFilter_y(accelAxes.y);
+		// 		// // if (buffer_y > Y_AXIS_FLAT_UPPER_THRESHOLD || 
+		// 		// // 	buffer_y < Y_AXIS_FLAT_LOWER_THRESHOLD) {
+		// 		// // 	hilState = HILL_FLAT_CLIFF_TRANSITION;
+		// 		// // } else {
+		// 		// /* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1.2: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
+		// 		// // 				currently on a flat surface
+		// 		// 	hilState = HILL_FORWARD;
+		// 		// }
+		// 		hilState = HILL_FLAT_CLIFF_TRANSITION;
+		// 		goto state_action;
+		// 	}
+		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
+		// }
 		
 		/* 
 		..........................................Hill Forward
 		*/
-		else if (hilState == HILL_FORWARD) {
+		// else if (hilState == HILL_FORWARD) {
 			
-			/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
-			// 					entering a new cliff (downward)
-			// buffer_x = KMFilter_x(accelAxes.x);
-			buffer_x = MAFilter_x(accelAxes.x);
-			if  (buffer_x < X_AXIS_DOWNWARD_UPPER_THRESHOLD ||
-				(netDistance - distanceAtManeuverStart > SAFETY_DISTANCE)) { // incase there is no flat surface
-				hilState = HILL_FLAT_CLIFF_TRANSITION;
-				goto state_action;
-			}
-			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-		}
+		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
+		// 	// 					entering a new cliff (downward)
+		// 	// buffer_x = KMFilter_x(accelAxes.x);
+		// 	// buffer_x = MAFilter_x(accelAxes.x);
+		// 	buffer_x = accelAxes.x;
+		// 	if  (buffer_x < X_AXIS_DOWNWARD_THRESHOLD ||
+		// 		(netDistance - distanceAtManeuverStart > SAFETY_DISTANCE)) { // incase there is no flat surface
+		// 		hilState = HILL_FLAT_CLIFF_TRANSITION;
+		// 		goto state_action;
+		// 	}
+		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
+		// }
 		/* 
 		..........................................Hill Flat-Cliff Transition
 		*/
 		else if (hilState == HILL_FLAT_CLIFF_TRANSITION) {
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
 			// 		Done reorient itself to the direction of the hill
-			buffer_y = MAFilter_y(accelAxes.y);
+			// buffer_y = MAFilter_y(accelAxes.y);
+			buffer_y = accelAxes.y;
 			if  (buffer_y < Y_AXIS_DOWNWARD_UPPER_THRESHOLD && 
 				buffer_y > Y_AXIS_DOWNWARD_LOWER_THRESHOLD) {
 				defaultAngle = netAngle;
@@ -356,8 +358,8 @@ void KobukiNavigationStatechart(
 		else if (hilState == HILL_DOWNWARD) {
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
 			// 			detected that the cliff has been exited
-			buffer_x = MAFilter_x(accelAxes.x);
-			if  (buffer_x > X_AXIS_DOWNWARD_UPPER_THRESHOLD&&
+			buffer_x = accelAxes.x;
+			if  (buffer_x > -0.1&&
 				 netDistance - distanceAtManeuverStart > SAFETY_DISTANCE) {
 				distanceAtManeuverStart = netDistance;
 				hilState = HILL_FORWARD_SAFTY;
@@ -420,7 +422,7 @@ void KobukiNavigationStatechart(
 	case HILL_CLIMBING:
 		switch (hilState)
 		{
-			case HILL_FORWARD:
+			// case HILL_FORWARD:
 			case HILL_FORWARD_SAFTY:
 			case HILL_UPWARD:
 			case HILL_DOWNWARD:
@@ -433,15 +435,15 @@ void KobukiNavigationStatechart(
 				rightWheelSpeed = -leftWheelSpeed;
 				break;
 			
-			case HILL_SAFETY_BACKWARD:
-			// full speed behind!
-			leftWheelSpeed = rightWheelSpeed = -STANDARD_SPEED;
-			break;
+			// case HILL_SAFETY_BACKWARD:
+			// // full speed behind!
+			// leftWheelSpeed = rightWheelSpeed = -STANDARD_SPEED;
+			// break;
 			
-			case HILL_LIMIT_TRANSITION:
-				leftWheelSpeed = (defaultAngle >= 0)?(TURN_SPEED):(-TURN_SPEED);
-				rightWheelSpeed = -leftWheelSpeed;
-				break;
+			// case HILL_LIMIT_TRANSITION:
+			// 	leftWheelSpeed = (defaultAngle >= 0)?(TURN_SPEED):(-TURN_SPEED);
+			// 	rightWheelSpeed = -leftWheelSpeed;
+			// 	break;
 			case HILL_HALT:
 			default:
 				// Unknown state
