@@ -53,6 +53,8 @@
 #define uint16_t unsigned short
 #define uint8_t	byte
 #define uint32_t unsigned int
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#define min(a,b) (((a) < (b)) ? (a) : (b))
 
 typedef enum{
 	LEFT=0,
@@ -79,11 +81,11 @@ typedef enum{
 	HILL_HALT
 }hillClimbingState_t;
 
-typedef enum{
-	NONE=0,
-	LOW,
-	HIGH
-}cliffPossibility_t;
+// typedef enum{
+// 	NONE=0,
+// 	LOW,
+// 	HIGH
+// }cliffPossibility_t;
 // ============================================================================================================
 
 // Program States
@@ -105,7 +107,7 @@ typedef enum{
 
 static void __obstable_handler(int32_t,
 							   turn_t*,
-							   bool*,
+							//    bool*,
 							   navigationState_t*);
 
 static void _navigation_guard_handler(navigationState_t*,
@@ -115,8 +117,8 @@ static void _navigation_guard_handler(navigationState_t*,
 							   		  int32_t*,
 									  int16_t,
 							   		  KobukiSensors_t,
-							   		  turn_t*,
-							   		  bool*);
+							   		  turn_t*);
+							   		//   bool*);
 static void _navigation_action_handler(navigationState_t,
 			  						   int32_t,
 									   int32_t,
@@ -152,7 +154,7 @@ void KobukiNavigationStatechart(
 	static hillClimbingState_t	hilState = HILL_REORIENT_UPWARD;
 	static turn_t				defaultTurn = RIGHT;
 	static int16_t				defaultAngle = 0; // ground direction to head for
-	static bool					objHit = false;
+	// static bool					objHit = false;
 	
 	// static bool					hillNavigationMode = false;
 	// static bool					startupOnHill = false;
@@ -242,8 +244,8 @@ void KobukiNavigationStatechart(
 								  &angleAtManeuverStart,
 								  defaultAngle,
 								  sensors,
-								  &defaultTurn,
-								  &objHit);
+								  &defaultTurn);
+								//   &objHit);
 		/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 
 
@@ -389,7 +391,7 @@ void KobukiNavigationStatechart(
 			defaultTurn = RIGHT;
 			defaultAngle = 0;
 			// cliffEdgeCnt = 0;
-			objHit = false;
+			// objHit = false;
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		}
 		
@@ -579,7 +581,7 @@ void KobukiNavigationStatechart(
  */
 static void __obstable_handler(int32_t 				angleAtManeuverStart,
 							   turn_t* 				defaultTurn,
-							   bool* 				objHit,
+							//    bool* 				objHit,
 							   navigationState_t*	state)
 {
 	if ((angleAtManeuverStart < -MAXIMUM_ANGLE + ANGLE_TOLERANCE) &&
@@ -589,7 +591,7 @@ static void __obstable_handler(int32_t 				angleAtManeuverStart,
 		(*defaultTurn==LEFT))
 		{*defaultTurn = RIGHT;}
 	
-	*objHit = true;
+	// *objHit = true;
 	*state = BACKWARD;
 	// auto go to state_action after this line
 }
@@ -605,8 +607,8 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 							   		  int32_t*				angleAtManeuverStart,
 									  int16_t				defaultAngle,
 							   		  KobukiSensors_t		sensors,
-							   		  turn_t*				defaultTurn,
-							   		  bool*					objHit)
+							   		  turn_t*				defaultTurn)
+							   		//   bool*					objHit)
 {
 		/* 
 		..........................................
@@ -637,7 +639,7 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 				// check for limit properties before changing state
 				__obstable_handler(*angleAtManeuverStart,
 									defaultTurn,
-									objHit,
+									// objHit,
 									navState);
 			} else
 			/**
@@ -656,7 +658,7 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 				// check for limit properties before changing state
 				__obstable_handler(*angleAtManeuverStart,
 									defaultTurn,
-									objHit,
+									// objHit,
 									navState);
 			} else 
 			/**
@@ -675,7 +677,7 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 				// check for limit properties before changing state
 				__obstable_handler(*angleAtManeuverStart,
 									defaultTurn,
-									objHit,
+									// objHit,
 									navState);
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
