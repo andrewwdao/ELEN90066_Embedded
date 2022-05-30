@@ -27,7 +27,7 @@
 #define X_AXIS_DOWNWARD_THRESHOLD	-0.15
 #define X_AXIS_FLAT_THRESHOLD		-0.1
 #define Y_AXIS_UPWARD_LOWER_THRESHOLD	0.00 // simulation:0.6
-#define Y_AXIS_UPWARD_UPPER_THRESHOLD	0.03 
+#define Y_AXIS_UPWARD_UPPER_THRESHOLD	0.03
 #define Y_AXIS_DOWNWARD_LOWER_THRESHOLD	0.00 // simulation:0.11
 #define Y_AXIS_DOWNWARD_UPPER_THRESHOLD	0.03
 #define Y_AXIS_FLAT_LOWER_THRESHOLD		0.00 // simulation: -0.03
@@ -41,7 +41,7 @@
 
 
 // #define Y_AXIS_UPWARD_LOWER_THRESHOLD	0.07 // simulation:0.6
-// #define Y_AXIS_UPWARD_UPPER_THRESHOLD	0.08 
+// #define Y_AXIS_UPWARD_UPPER_THRESHOLD	0.08
 // #define Y_AXIS_DOWNWARD_LOWER_THRESHOLD	-0.12 // simulation:0.11
 // #define Y_AXIS_DOWNWARD_UPPER_THRESHOLD	-0.10
 // #define Y_AXIS_FLAT_LOWER_THRESHOLD		-0.04 // simulation: -0.03
@@ -155,7 +155,7 @@ void KobukiNavigationStatechart(
 	static turn_t				defaultTurn = RIGHT;
 	static int16_t				defaultAngle = 0; // ground direction to head for
 	// static bool					objHit = false;
-	
+
 	// static bool					hillNavigationMode = false;
 	// static bool					startupOnHill = false;
 	// static bool 				reachEndofHill = false;
@@ -215,7 +215,7 @@ void KobukiNavigationStatechart(
 			state = PAUSE_WAIT_BUTTON_RELEASE;
 			break;
 		}
-	} else 
+	} else
 	//*************************************
 	// GUARD - state transition           *
 	//*************************************
@@ -257,7 +257,7 @@ void KobukiNavigationStatechart(
 		*/
 		if (hilState == HILL_REORIENT_UPWARD) {
 			printf("HILL_REORIENT_UPWARD\n");
-		
+
 			/**
 			 * @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@
 			 * @brief	Done reorient itself to the direction of the hill
@@ -271,13 +271,13 @@ void KobukiNavigationStatechart(
 				hilState = HILL_UPWARD;
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-		} else 
+		} else
 		/* 
 		..........................................
 		*/
 		if (hilState == HILL_UPWARD) {
 			printf("HILL_UPWARD\n");
-			
+
 			/**
 			 * @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@
 			 * @brief	check for correct angle after every fixed distance,
@@ -306,29 +306,29 @@ void KobukiNavigationStatechart(
 				hilState = HILL_REORIENT_DOWNWARD;
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-			
-		} else 
-		/* 
+
+		} else
+		/*
 		..........................................
 		*/
 		if (hilState == HILL_REORIENT_DOWNWARD) {
 			printf("HILL_REORIENT_DOWNWARD\n");
-		
+
 			/**
 			 * @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@
 			 * @brief	Done reorient itself to the direction of the hill
 			 */
 			buffer_y = MAFilter_y(accelAxes.y);
 			// buffer_y = accelAxes.y;
-			if  (buffer_y < Y_AXIS_DOWNWARD_UPPER_THRESHOLD && 
+			if  (buffer_y < Y_AXIS_DOWNWARD_UPPER_THRESHOLD &&
 				buffer_y > Y_AXIS_DOWNWARD_LOWER_THRESHOLD) {
 				defaultAngle = netAngle;
 				distanceAtManeuverStart = netDistance;
 				hilState = HILL_DOWNWARD;
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-		} else 
-		/* 
+		} else
+		/*
 		..........................................
 		*/
 		if (hilState == HILL_DOWNWARD) {
@@ -361,8 +361,8 @@ void KobukiNavigationStatechart(
 				hilState = HILL_FORWARD_SAFTY;
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-		} else 
-		/* 
+		} else
+		/*
 		..........................................
 		*/
 		if (hilState == HILL_FORWARD_SAFTY) {
@@ -370,20 +370,20 @@ void KobukiNavigationStatechart(
 			/**
 			 * @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@
 			 * @brief	after forward a safety distance
-			 */	
+			 */
 			if	(netDistance - distanceAtManeuverStart > SAFETY_DISTANCE) {
 				hilState = HILL_HALT;
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-		} else 
-		/* 
+		} else
+		/*
 		..........................................
 		*/if (hilState == HILL_HALT) {
 			printf("HILL_HALT\n");
 			/**
 			 * @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@
 			 * @brief	done task, equivalent to (very) soft reset.
-			 */			
+			 */
 			state = INITIAL;
 			unpausedState = NAVIGATION;
 			navState = FORWARD;
@@ -394,32 +394,32 @@ void KobukiNavigationStatechart(
 			// objHit = false;
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		}
-		
-		/* 
+
+		/*
 		..........................................Hill Upward
 		*/
 		// else if (hilState == HILL_CLIFF_FLAT_TRANSITION) {
 		// 	printf("HILL_CLIFF_FLAT_TRANSITION\n");
-		
+
 		// 	/* @@@@@@@@@@@@ GUARD 1: transition to REORIENT @@@@@@@@@@@@*/
 		// 	// --- DISTANCE INTERVAL:
 		// 	//						check for correct angle after every fixed distance
 		// 	buffer_y = accelAxes.y;
 		// 	if ((netDistance - distanceAtManeuverStart > STANDARD_DISTANCE) &&
-		// 		(buffer_y > Y_AXIS_DOWNWARD_UPPER_THRESHOLD || 
+		// 		(buffer_y > Y_AXIS_DOWNWARD_UPPER_THRESHOLD ||
 		// 		buffer_y < Y_AXIS_DOWNWARD_LOWER_THRESHOLD))
 		// 	{
 		// 		hilState = HILL_FORWARD;
 		// 		return;//goto state_action;
 		// 	}/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-			
+
 		// }
 
-		/* 
+		/*
 		..........................................Moving Backward
 		*/
 		// else if (hilState == HILL_SAFETY_BACKWARD) {
-				
+
 		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		// 	// 				after backward a safety distance
 		// 	if (netDistance - distanceAtManeuverStart > SAFETY_DISTANCE) {
@@ -429,11 +429,11 @@ void KobukiNavigationStatechart(
 		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		// 	}
 		// }
-		/* 
+		/*
 		..........................................Hill Limit Transition
 		*/
 		// else if (hilState == HILL_LIMIT_TRANSITION) {
-			
+
 		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		// 	// 		if finish turning to adjust to the new defaultAngle
 		// 	if (abs(abs(netAngle) - abs(defaultAngle)) < ANGLE_TOLERANCE &&
@@ -447,7 +447,7 @@ void KobukiNavigationStatechart(
 		// 		// } else {
 		// 		// 	// for simulation only
 		// 		// // buffer_y = MAFilter_y(accelAxes.y);
-		// 		// // if (buffer_y > Y_AXIS_FLAT_UPPER_THRESHOLD || 
+		// 		// // if (buffer_y > Y_AXIS_FLAT_UPPER_THRESHOLD ||
 		// 		// // 	buffer_y < Y_AXIS_FLAT_LOWER_THRESHOLD) {
 		// 		// // 	hilState = HILL_REORIENT_DOWNWARD;
 		// 		// // } else {
@@ -460,13 +460,13 @@ void KobukiNavigationStatechart(
 		// 	}
 		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		// }
-		
-		/* 
+
+		/*
 		..........................................Hill Forward
 		*/
 		// else if (hilState == HILL_FORWARD) {
 		// 	printf("HILL_FORWARD\n");
-		
+
 		// 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@*/
 		// 	// 					entering a new cliff (downward)
 		// 	// buffer_x = KMFilter_x(accelAxes.x);
@@ -478,7 +478,7 @@ void KobukiNavigationStatechart(
 		// 		goto state_action;
 		// 	}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-		
+
 			// if (buffer_x < X_AXIS_DOWNWARD_THRESHOLD) {
 			// 	distanceAtManeuverStart = netDistance;
 			// 	// hilState = HILL_SAFETY_BACKWARD; //basically just the same as turn
@@ -486,7 +486,7 @@ void KobukiNavigationStatechart(
 			// 	hilState = HILL_REORIENT_DOWNWARD;
 			// }
 		// }
-		
+
 	}/**************************************************************************************************/
 	// else, no transitions are taken
 
@@ -494,7 +494,7 @@ void KobukiNavigationStatechart(
 	/**
 	 * @brief calculate the speed difference based on the tiltAngle.
 	 * 		  Deployed an upper barrier for speed difference to avoid turning too fast
-	 * @param tiltAngle: the tilt angle compared to the default direction 
+	 * @param tiltAngle: the tilt angle compared to the default direction
 	 */
 	tiltAngle = defaultAngle - netAngle;
 	// apply gain to the compensator if the angle difference is big
@@ -547,12 +547,12 @@ void KobukiNavigationStatechart(
 				// Unknown state
 				leftWheelSpeed = rightWheelSpeed = 0;
 				break;
-			
+
 			// case HILL_SAFETY_BACKWARD:
 			// // full speed behind!
 			// leftWheelSpeed = rightWheelSpeed = -STANDARD_SPEED;
 			// break;
-			
+
 			// case HILL_LIMIT_TRANSITION:
 			// 	leftWheelSpeed = (defaultAngle >= 0)?(TURN_SPEED):(-TURN_SPEED);
 			// 	rightWheelSpeed = -leftWheelSpeed;
@@ -610,7 +610,7 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 							   		  turn_t*				defaultTurn)
 							   		//   bool*					objHit)
 {
-		/* 
+		/*
 		..........................................
 		*/
 		if (*navState == FORWARD){
@@ -625,12 +625,12 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 			// 	*navState = REORIENT;
 			// 	return;//goto state_action;
 			// }
-			
+
 			/**
 			 * @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@
 			 * @brief	EVENT: bump center
 			 * 				   ir cliff center
-			 */		  
+			 */
 			if (sensors.bumps_wheelDrops.bumpCenter ||
 					sensors.cliffCenter)
 			{
@@ -647,7 +647,7 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 			 * @brief	EVENT: bump right
 			 * 				   ir cliff right
 			 * 				   wheeldrop right
-			 */		  
+			 */
 			if (sensors.bumps_wheelDrops.bumpRight ||
 					sensors.cliffRight || 
 					sensors.bumps_wheelDrops.wheeldropRight)
@@ -660,14 +660,14 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 									defaultTurn,
 									// objHit,
 									navState);
-			} else 
+			} else
 			/**
 			 * @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 3: @@@@@@@@@@@@@@@@@@@@@@@@@@
 			 * @brief	EVENT: bump left
 			 * 				   ir cliff left
 			 * 				   wheeldrop left
 			 */
-			if (sensors.bumps_wheelDrops.bumpLeft || 
+			if (sensors.bumps_wheelDrops.bumpLeft ||
 					sensors.cliffLeft || 
 					sensors.bumps_wheelDrops.wheeldropLeft)
 			{
@@ -681,7 +681,7 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 									navState);
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-		} else 
+		} else
 		/* 
 		..........................................
 		*/
@@ -690,29 +690,29 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 			/**
 			 * @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@
 			 * @brief	EVENT: reached pre-defined distance
-			 */	
+			 */
 			if (netDistance - *distanceAtManeuverStart > SAFETY_DISTANCE) {
 				// *navState = (abs(netAngle)>abs(STANDARD_ROTATION))?TURN:REORIENT;
 				// *navState = REORIENT;
 				*navState = TURN;
 			}
 			/* @@@@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-		} else 
+		} else
 		/* 
 		..........................................
 		*/
 		// /* @@@@@@@@@@@@ GUARD 1+2: transition to TURN or FORWARD @@@@@@@@@@@@*/
 		// if (*navState == REORIENT &&
-		// 		(abs(netAngle) < abs(defaultAngle) + ANGLE_TOLERANCE) && 
+		// 		(abs(netAngle) < abs(defaultAngle) + ANGLE_TOLERANCE) &&
 		// 		(netAngle*defaultAngle >= 0)) { //check for the agrement on the sign to make sure it exit at the correct angle
 		// 	printf("Forward\n");
 		// 	*angleAtManeuverStart = netAngle;
 		// 	*distanceAtManeuverStart = netDistance;
 		// 	*navState = *objHit?TURN:FORWARD;
 		// 	*objHit = false; //reset the flag
-		// } else 
+		// } else
 		/* @@@@@@@@@@@@@@@@@@@@@@@ End guard @@@@@@@@@@@@@@@@@@@@@@*/
-		/* 
+		/*
 		..........................................
 		*/
 		if (*navState == TURN) {
@@ -720,7 +720,7 @@ static void _navigation_guard_handler(navigationState_t*		navState,
 			/**
 			 * @@@@@@@@@@@@@@@@@@@@@@@@@@ GUARD 1: @@@@@@@@@@@@@@@@@@@@@@@@@@
 			 * @brief	EVENT: finished turning to the desire angle
-			 */	
+			 */
 			if ((abs(abs(netAngle) - abs(*angleAtManeuverStart)) > abs(defaultAngle) + STANDARD_ROTATION) &&
 				(netAngle*defaultAngle >= 0)) { //check for the agrement on the sign to make sure it exit at the correct angle
 				*distanceAtManeuverStart = netDistance;
